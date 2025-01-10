@@ -297,13 +297,16 @@ func (te *test) startServer(ts testgrpc.TestServiceServer) {
 		te.t.Fatalf("Failed to listen: %v", err)
 	}
 	var opts []grpc.ServerOption
-	s := grpc.NewServer(opts...)
-	te.srv = s
-	if te.testService != nil {
-		testgrpc.RegisterTestServiceServer(s, te.testService)
+	stub := &stubserver.StubServer{
+		Listener: lis,
+		EmptyCallF: func(ctx context.Context, in *testpb.Empty) (*testpb.Empty, error) {
+			return &testpb.Empty{}, nil
+		},
+		S: grpc.NewServer(opts...),
 	}
+	stubserver.StartTestService(te.t, stub)
+	defer stub.S.Stop()
 
-	go s.Serve(lis)
 	te.srvAddr = lis.Addr().String()
 	te.srvIP = lis.Addr().(*net.TCPAddr).IP
 	te.srvPort = lis.Addr().(*net.TCPAddr).Port
